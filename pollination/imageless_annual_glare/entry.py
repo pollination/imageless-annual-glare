@@ -11,14 +11,13 @@ from pollination.path.copy import Copy
 from pollination.alias.inputs.model import hbjson_model_grid_input
 from pollination.alias.inputs.wea import wea_input_timestep_check
 from pollination.alias.inputs.north import north_input
-from pollination.alias.inputs.radiancepar import rad_par_annual_input, \
-    daylight_thresholds_input
+from pollination.alias.inputs.radiancepar import rad_par_annual_input
 from pollination.alias.inputs.grid import grid_filter_input, \
     min_sensor_count_input, cpu_count
 from pollination.alias.inputs.schedule import schedule_csv_input
-from pollination.alias.outputs.daylight import daylight_autonomy_results, \
-    continuous_daylight_autonomy_results, \
-    udi_results, udi_lower_results, udi_upper_results
+
+
+from ._raytracing import ImagelessAnnualGlare
 
 
 @dataclass
@@ -85,29 +84,6 @@ class ImagelessAnnualGlareEntryPoint(DAG):
         extensions=['txt', 'csv'], optional=True, alias=schedule_csv_input
     )
 
-    thresholds = Inputs.str(
-        description='A string to change the threshold for daylight autonomy and useful '
-        'daylight illuminance. Valid keys are -t for daylight autonomy threshold, -lt '
-        'for the lower threshold for useful daylight illuminance and -ut for the upper '
-        'threshold. The default is -t 300 -lt 100 -ut 3000. The order of the keys is '
-        'not important and you can include one or all of them. For instance if you only '
-        'want to change the upper threshold to 2000 lux you should use -ut 2000 as '
-        'the input.', default='-t 300 -lt 100 -ut 3000',
-        alias=daylight_thresholds_input
-    )
-
-    @task(template=CreateSunMatrix)
-    def generate_sunpath(self, north=north, wea=wea):
-        """Create sunpath for sun-up-hours."""
-        return [
-            {'from': CreateSunMatrix()._outputs.sunpath,
-             'to': 'resources/sunpath.mtx'},
-            {
-                'from': CreateSunMatrix()._outputs.sun_modifiers,
-                'to': 'resources/suns.mod'
-            }
-        ]
-
     @task(template=CreateRadianceFolderGrid)
     def create_rad_folder(self, input_model=model, grid_filter=grid_filter):
         """Translate the input model to a radiance folder."""
@@ -122,7 +98,7 @@ class ImagelessAnnualGlareEntryPoint(DAG):
             },
             {
                 'from': CreateRadianceFolderGrid()._outputs.sensor_grids_file,
-                'to': 'results/total/grids_info.json'
+                'to': 'results/glare_autonomy/grids_info.json'
             },
             {
                 'from': CreateRadianceFolderGrid()._outputs.sensor_grids,
@@ -135,7 +111,7 @@ class ImagelessAnnualGlareEntryPoint(DAG):
         return [
             {
                 'from': Copy()._outputs.dst,
-                'to': 'results/direct/grids_info.json'
+                'to': 'results/daylight_glare_probability/grids_info.json'
             }
         ]
 
@@ -165,7 +141,7 @@ class ImagelessAnnualGlareEntryPoint(DAG):
             },
             {
                 'from': SplitGridFolder()._outputs.dist_info,
-                'to': 'initial_results/final/total/_redist_info.json'
+                'to': 'initial_results/glare_autonomy/_redist_info.json'
             },
             {
                 'from': SplitGridFolder()._outputs.sensor_grids,
@@ -178,23 +154,7 @@ class ImagelessAnnualGlareEntryPoint(DAG):
         return [
             {
                 'from': Copy()._outputs.dst,
-                'to': 'initial_results/final/direct/_redist_info.json'
-            }
-        ]
-
-    @task(
-        template=CreateOctreeWithSky, needs=[
-            generate_sunpath, create_rad_folder]
-    )
-    def create_octree_with_suns(
-        self, model=create_rad_folder._outputs.model_folder,
-        sky=generate_sunpath._outputs.sunpath
-    ):
-        """Create octree from radiance folder and sunpath for direct studies."""
-        return [
-            {
-                'from': CreateOctreeWithSky()._outputs.scene_file,
-                'to': 'resources/scene_with_suns.oct'
+                'to': 'initial_results/daylight_glare_probability/_redist_info.json'
             }
         ]
 
@@ -212,31 +172,56 @@ class ImagelessAnnualGlareEntryPoint(DAG):
              'to': 'resources/sky.mtx'}
         ]
 
-    @task(template=CreateSkyMatrix)
-    def create_direct_sky(
-        self, north=north, wea=wea, sky_type='sun-only', sun_up_hours='sun-up-hours'
+    @task(
+        template=ImagelessAnnualGlare,
+        needs=[
+            create_sky_dome, create_octree, create_total_sky, create_rad_folder, 
+            split_grid_folder
+        ],
+        loop=split_grid_folder._outputs.sensor_grids,
+        # create a subfolder for each grid
+        sub_folder='initial_results/{{item.full_id}}',
+        # sensor_grid sub_path
+        sub_paths={'sensor_grid': '{{item.full_id}}.pts'}
+    )
+    def annual_imageless_glare(
+        self,
+        radiance_parameters=radiance_parameters,
+        octree_file=create_octree._outputs.scene_file,
+        grid_name='{{item.full_id}}',
+        sensor_grid=split_grid_folder._outputs.output_folder,
+        sensor_count='{{item.count}}',
+        sky_matrix=create_total_sky._outputs.sky_matrix,
+        sky_dome=create_sky_dome._outputs.sky_dome,
+        bsdfs=create_rad_folder._outputs.bsdf_folder,
+        schedule=schedule
+    ):
+        pass
+
+    @task(
+        template=MergeFolderData,
+        needs=[annual_imageless_glare]
+    )
+    def restructure_glare_autononmy_results(
+        self, input_folder='initial_results/glare_autonomy', extension='ga'
     ):
         return [
             {
-                'from': CreateSkyMatrix()._outputs.sky_matrix,
-                'to': 'resources/sky_direct.mtx'
+                'from': MergeFolderData()._outputs.output_folder,
+                'to': 'results/glare_autonomy'
             }
         ]
 
-    @task(template=ParseSunUpHours, needs=[generate_sunpath])
-    def parse_sun_up_hours(self, sun_modifiers=generate_sunpath._outputs.sun_modifiers):
+    @task(
+        template=MergeFolderData,
+        needs=[annual_imageless_glare]
+    )
+    def restructure_daylight_glare_probability_results(
+        self, input_folder='initial_results/daylight_glare_probability', extension='dgp'
+    ):
         return [
             {
-                'from': ParseSunUpHours()._outputs.sun_up_hours,
-                'to': 'results/total/sun-up-hours.txt'
-            }
-        ]
-
-    @task(template=Copy, needs=[parse_sun_up_hours])
-    def copy_sun_up_hours(self, src=parse_sun_up_hours._outputs.sun_up_hours):
-        return [
-            {
-                'from': Copy()._outputs.dst,
-                'to': 'results/direct/sun-up-hours.txt'
+                'from': MergeFolderData()._outputs.output_folder,
+                'to': 'results/daylight_glare_probability'
             }
         ]
