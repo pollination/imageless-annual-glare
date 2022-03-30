@@ -10,13 +10,6 @@ from pollination.honeybee_radiance.glare import DCGlareDGA, DCGlareDGP
 @dataclass
 class ImagelessAnnualGlare(DAG):
     # inputs
-
-    identifier = Inputs.str(
-        description='Identifier for this two-phase study. This value is usually the '
-        'identifier of the aperture group or is set to __static__ for the static '
-        'apertures in the model.', default='__static__'
-    )
-
     radiance_parameters = Inputs.str(
         description='The radiance parameters for ray tracing',
         default='-ab 2 -ad 5000 -lw 2e-05'
@@ -61,7 +54,12 @@ class ImagelessAnnualGlare(DAG):
     )
 
     glare_limit = Inputs.float(
-        description='Glare limit indicating presence of glare.', default=0.4
+        description='Glare limit indicating presence of glare. This value is used when '
+        'calculating glare autonomy (the fraction of hours in which the view is free '
+        'of glare). The glare limit value is used to determine if the view is free of '
+        'glare. The glare limit must be in the range 0-1.', 
+        default=0.4,
+        spec={'type': 'number', 'minimum': 0, 'maximum': 1},
     )
 
     @task(template=DaylightCoefficientNoSkyMatrix)
