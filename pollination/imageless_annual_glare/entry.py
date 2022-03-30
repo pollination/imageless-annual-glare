@@ -84,6 +84,11 @@ class ImagelessAnnualGlareEntryPoint(DAG):
         extensions=['txt', 'csv'], optional=True, alias=schedule_csv_input
     )
 
+    glare_limit = Inputs.float(
+        description='Glare limit indicating presence of glare. This value is used when '
+        'calculating glare autonomy.', default=0.4
+    )
+
     @task(template=CreateRadianceFolderGrid)
     def create_rad_folder(self, input_model=model, grid_filter=grid_filter):
         """Translate the input model to a radiance folder."""
@@ -194,7 +199,8 @@ class ImagelessAnnualGlareEntryPoint(DAG):
         sky_matrix=create_total_sky._outputs.sky_matrix,
         sky_dome=create_sky_dome._outputs.sky_dome,
         bsdfs=create_rad_folder._outputs.bsdf_folder,
-        schedule=schedule
+        schedule=schedule,
+        glare_limit=glare_limit
     ):
         pass
 
