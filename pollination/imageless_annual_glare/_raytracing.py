@@ -11,6 +11,12 @@ from pollination.honeybee_radiance.glare import DCGlareDGA, DCGlareDGP
 class ImagelessAnnualGlare(DAG):
     # inputs
 
+    identifier = Inputs.str(
+        description='Identifier for this two-phase study. This value is usually the '
+        'identifier of the aperture group or is set to __static__ for the static '
+        'apertures in the model.', default='__static__'
+    )
+
     radiance_parameters = Inputs.str(
         description='The radiance parameters for ray tracing',
         default='-ab 2 -ad 5000 -lw 2e-05'
@@ -52,6 +58,10 @@ class ImagelessAnnualGlare(DAG):
         description='Path to an annual schedule file. Values should be 0-1 separated '
         'by new line. If not provided an 8-5 annual schedule will be created.',
         extensions=['txt', 'csv'], optional=True
+    )
+
+    glare_limit = Inputs.float(
+        description='Glare limit indicating presence of glare.', default=0.4
     )
 
     @task(template=DaylightCoefficientNoSkyMatrix)
@@ -103,7 +113,7 @@ class ImagelessAnnualGlare(DAG):
         dc_total=total_sky._outputs.result_file,
         sky_vector=sky_matrix,
         view_rays=sensor_grid,
-        glare_limit=0.4,
+        glare_limit=glare_limit,
         schedule=schedule
     ):
         return [
