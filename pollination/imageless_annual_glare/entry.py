@@ -86,7 +86,11 @@ class ImagelessAnnualGlareEntryPoint(DAG):
 
     glare_limit = Inputs.float(
         description='Glare limit indicating presence of glare. This value is used when '
-        'calculating glare autonomy.', default=0.4
+        'calculating glare autonomy (the fraction of hours in which the view is free '
+        'of glare). The glare limit value is used to determine if the view is free of '
+        'glare. The glare limit must be in the range 0-1. If the ', 
+        default=0.4,
+        spec={'type': 'number', 'minimum': 0, 'maximum': 1},
     )
 
     @task(template=CreateRadianceFolderGrid)
