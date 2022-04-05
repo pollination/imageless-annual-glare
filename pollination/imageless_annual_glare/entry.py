@@ -235,3 +235,12 @@ class ImagelessAnnualGlareEntryPoint(DAG):
                 'to': 'results/daylight_glare_probability'
             }
         ]
+
+    results = Outputs.folder(
+        source='results/daylight_glare_probability', description='Folder with raw '
+        'result files (.dgp) that contain matrices for the daylight glare probability.'
+    )
+
+    ga = Outputs.folder(
+        source='results/glare_autonomy', description='Glare autonomy results.'
+    )
