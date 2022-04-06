@@ -15,6 +15,7 @@ from pollination.alias.inputs.radiancepar import rad_par_annual_input
 from pollination.alias.inputs.grid import grid_filter_input, \
     min_sensor_count_input, cpu_count
 from pollination.alias.inputs.schedule import schedule_csv_input
+from pollination.alias.outputs.daylight import glare_autonomy_results
 
 
 from ._raytracing import ImagelessAnnualGlare
@@ -84,13 +85,14 @@ class ImagelessAnnualGlareEntryPoint(DAG):
         extensions=['txt', 'csv'], optional=True, alias=schedule_csv_input
     )
 
-    glare_limit = Inputs.float(
-        description='Glare limit indicating presence of glare. This value is used when '
+    glare_threshold = Inputs.float(
+        description='A fractional number for the threshold of DGP above which '
+        'conditions are considered to induce glare. This value is used when '
         'calculating glare autonomy (the fraction of hours in which the view is free '
-        'of glare). The glare limit value is used to determine if the view is free of '
-        'glare. The glare limit must be in the range 0-1. If the ', 
+        'of glare). Common values are 0.35 (Perceptible Glare), 0.4 (Disturbing '
+        'Glare), and 0.45 (Intolerable Glare).',
         default=0.4,
-        spec={'type': 'number', 'minimum': 0, 'maximum': 1},
+        spec={'type': 'number', 'minimum': 0, 'maximum': 1}
     )
 
     @task(template=CreateRadianceFolderGrid)
@@ -107,7 +109,7 @@ class ImagelessAnnualGlareEntryPoint(DAG):
             },
             {
                 'from': CreateRadianceFolderGrid()._outputs.sensor_grids_file,
-                'to': 'results/glare_autonomy/grids_info.json'
+                'to': 'results/grids_info.json'
             },
             {
                 'from': CreateRadianceFolderGrid()._outputs.sensor_grids,
@@ -120,7 +122,7 @@ class ImagelessAnnualGlareEntryPoint(DAG):
         return [
             {
                 'from': Copy()._outputs.dst,
-                'to': 'results/daylight_glare_probability/grids_info.json'
+                'to': 'metrics/ga/grids_info.json'
             }
         ]
 
@@ -150,7 +152,7 @@ class ImagelessAnnualGlareEntryPoint(DAG):
             },
             {
                 'from': SplitGridFolder()._outputs.dist_info,
-                'to': 'initial_results/glare_autonomy/_redist_info.json'
+                'to': 'initial_results/ga/_redist_info.json'
             },
             {
                 'from': SplitGridFolder()._outputs.sensor_grids,
@@ -163,7 +165,7 @@ class ImagelessAnnualGlareEntryPoint(DAG):
         return [
             {
                 'from': Copy()._outputs.dst,
-                'to': 'initial_results/daylight_glare_probability/_redist_info.json'
+                'to': 'initial_results/dgp/_redist_info.json'
             }
         ]
 
@@ -181,10 +183,29 @@ class ImagelessAnnualGlareEntryPoint(DAG):
              'to': 'resources/sky.mtx'}
         ]
 
+    @task(template=CreateSunMatrix)
+    def generate_sunpath(self, north=north, wea=wea):
+        """Create sunpath for sun-up-hours."""
+        return [
+            {
+                'from': CreateSunMatrix()._outputs.sun_modifiers,
+                'to': 'resources/suns.mod'
+            }
+        ]
+
+    @task(template=ParseSunUpHours, needs=[generate_sunpath])
+    def parse_sun_up_hours(self, sun_modifiers=generate_sunpath._outputs.sun_modifiers):
+        return [
+            {
+                'from': ParseSunUpHours()._outputs.sun_up_hours,
+                'to': 'results/sun-up-hours.txt'
+            }
+        ]
+
     @task(
         template=ImagelessAnnualGlare,
         needs=[
-            create_sky_dome, create_octree, create_total_sky, create_rad_folder, 
+            create_sky_dome, create_octree, create_total_sky, create_rad_folder,
             split_grid_folder
         ],
         loop=split_grid_folder._outputs.sensor_grids,
@@ -204,7 +225,7 @@ class ImagelessAnnualGlareEntryPoint(DAG):
         sky_dome=create_sky_dome._outputs.sky_dome,
         bsdfs=create_rad_folder._outputs.bsdf_folder,
         schedule=schedule,
-        glare_limit=glare_limit
+        glare_limit=glare_threshold
     ):
         pass
 
@@ -212,13 +233,13 @@ class ImagelessAnnualGlareEntryPoint(DAG):
         template=MergeFolderData,
         needs=[annual_imageless_glare]
     )
-    def restructure_glare_autononmy_results(
-        self, input_folder='initial_results/glare_autonomy', extension='ga'
+    def restructure_glare_autonomy_results(
+        self, input_folder='initial_results/ga', extension='ga'
     ):
         return [
             {
                 'from': MergeFolderData()._outputs.output_folder,
-                'to': 'results/glare_autonomy'
+                'to': 'metrics/ga'
             }
         ]
 
@@ -227,20 +248,21 @@ class ImagelessAnnualGlareEntryPoint(DAG):
         needs=[annual_imageless_glare]
     )
     def restructure_daylight_glare_probability_results(
-        self, input_folder='initial_results/daylight_glare_probability', extension='dgp'
+        self, input_folder='initial_results/dgp', extension='dgp'
     ):
         return [
             {
                 'from': MergeFolderData()._outputs.output_folder,
-                'to': 'results/daylight_glare_probability'
+                'to': 'results'
             }
         ]
 
     results = Outputs.folder(
-        source='results/daylight_glare_probability', description='Folder with raw '
+        source='results', description='Folder with raw '
         'result files (.dgp) that contain matrices for the daylight glare probability.'
     )
 
     ga = Outputs.folder(
-        source='results/glare_autonomy', description='Glare autonomy results.'
+        source='metrics/ga', description='Glare autonomy results.',
+        alias=glare_autonomy_results
     )
