@@ -4,7 +4,7 @@ from pollination_dsl.dag import Inputs, DAG, task
 from dataclasses import dataclass
 
 from pollination.honeybee_radiance.coefficient import DaylightCoefficientNoSkyMatrix
-from pollination.honeybee_radiance.glare import DCGlareDGA, DCGlareDGP
+from pollination.honeybee_radiance.glare import DCGlareDGP
 
 
 @dataclass
@@ -47,21 +47,6 @@ class ImagelessAnnualGlare(DAG):
         optional=True
     )
 
-    schedule = Inputs.file(
-        description='Path to an annual schedule file. Values should be 0-1 separated '
-        'by new line. If not provided an 8-5 annual schedule will be created.',
-        extensions=['txt', 'csv'], optional=True
-    )
-
-    glare_limit = Inputs.float(
-        description='Glare limit indicating presence of glare. This value is used when '
-        'calculating glare autonomy (the fraction of hours in which the view is free '
-        'of glare). The glare limit value is used to determine if the view is free of '
-        'glare. The glare limit must be in the range 0-1.',
-        default=0.4,
-        spec={'type': 'number', 'minimum': 0, 'maximum': 1},
-    )
-
     @task(template=DaylightCoefficientNoSkyMatrix)
     def direct_sky(
         self,
@@ -101,27 +86,6 @@ class ImagelessAnnualGlare(DAG):
         ]
 
     @task(
-        template=DCGlareDGA,
-        needs=[total_sky, direct_sky]
-    )
-    def daylight_glare_autonomy(
-        self,
-        name=grid_name,
-        dc_direct=direct_sky._outputs.result_file,
-        dc_total=total_sky._outputs.result_file,
-        sky_vector=sky_matrix,
-        view_rays=sensor_grid,
-        glare_limit=glare_limit,
-        schedule=schedule
-    ):
-        return [
-            {
-                'from': DCGlareDGA()._outputs.view_rays_glare_autonomy,
-                'to': '../ga/{{self.name}}.ga'
-            }
-        ]
-
-    @task(
         template=DCGlareDGP,
         needs=[total_sky, direct_sky]
     )
@@ -131,8 +95,7 @@ class ImagelessAnnualGlare(DAG):
         dc_direct=direct_sky._outputs.result_file,
         dc_total=total_sky._outputs.result_file,
         sky_vector=sky_matrix,
-        view_rays=sensor_grid,
-        schedule=schedule
+        view_rays=sensor_grid
     ):
         return [
             {

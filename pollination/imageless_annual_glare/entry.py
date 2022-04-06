@@ -5,6 +5,7 @@ from pollination.honeybee_radiance.translate import CreateRadianceFolderGrid
 from pollination.honeybee_radiance.octree import CreateOctree, CreateOctreeWithSky
 from pollination.honeybee_radiance.sky import CreateSkyDome, CreateSkyMatrix
 from pollination.honeybee_radiance.grid import SplitGridFolder, MergeFolderData
+from pollination.honeybee_radiance.post_process import AnnualGlareAutonomy
 from pollination.path.copy import Copy
 
 # input/output alias
@@ -223,25 +224,9 @@ class ImagelessAnnualGlareEntryPoint(DAG):
         sensor_count='{{item.count}}',
         sky_matrix=create_total_sky._outputs.sky_matrix,
         sky_dome=create_sky_dome._outputs.sky_dome,
-        bsdfs=create_rad_folder._outputs.bsdf_folder,
-        schedule=schedule,
-        glare_limit=glare_threshold
+        bsdfs=create_rad_folder._outputs.bsdf_folder
     ):
         pass
-
-    @task(
-        template=MergeFolderData,
-        needs=[annual_imageless_glare]
-    )
-    def restructure_glare_autonomy_results(
-        self, input_folder='initial_results/ga', extension='ga'
-    ):
-        return [
-            {
-                'from': MergeFolderData()._outputs.output_folder,
-                'to': 'metrics/ga'
-            }
-        ]
 
     @task(
         template=MergeFolderData,
@@ -254,6 +239,22 @@ class ImagelessAnnualGlareEntryPoint(DAG):
             {
                 'from': MergeFolderData()._outputs.output_folder,
                 'to': 'results'
+            }
+        ]
+
+    @task(
+        template=AnnualGlareAutonomy,
+        needs=[restructure_daylight_glare_probability_results]
+    )
+    def daylight_glare_autonomy(
+        self,
+        folder=restructure_daylight_glare_probability_results._outputs.output_folder,
+        schedule=schedule, glare_threshold=glare_threshold
+    ):
+        return [
+            {
+                'from': AnnualGlareAutonomy()._outputs.annual_metrics,
+                'to': 'metrics'
             }
         ]
 
