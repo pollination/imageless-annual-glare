@@ -57,7 +57,7 @@ class ImagelessAnnualGlare(DAG):
         description='Glare limit indicating presence of glare. This value is used when '
         'calculating glare autonomy (the fraction of hours in which the view is free '
         'of glare). The glare limit value is used to determine if the view is free of '
-        'glare. The glare limit must be in the range 0-1.', 
+        'glare. The glare limit must be in the range 0-1.',
         default=0.4,
         spec={'type': 'number', 'minimum': 0, 'maximum': 1},
     )
@@ -117,7 +117,7 @@ class ImagelessAnnualGlare(DAG):
         return [
             {
                 'from': DCGlareDGA()._outputs.view_rays_glare_autonomy,
-                'to': '../glare_autonomy/{{self.name}}.ga'
+                'to': '../ga/{{self.name}}.ga'
             }
         ]
 
@@ -137,6 +137,6 @@ class ImagelessAnnualGlare(DAG):
         return [
             {
                 'from': DCGlareDGP()._outputs.view_rays_dgp,
-                'to': '../daylight_glare_probability/{{self.name}}.dgp'
+                'to': '../dgp/{{self.name}}.dgp'
             }
         ]
