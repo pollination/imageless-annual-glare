@@ -1,5 +1,10 @@
 # imageless-annual-glare
 
-Recipe for running imageless annual glare on Pollination.
+Run an annual glare study for a Honeybee model to compute hourly Daylight Glare
+Probability (DGP) for each sensor in a model's sensor grids.
 
-See [here](https://github.com/nljones/Accelerad/wiki/The-Imageless-Method-for-Spatial-and-Annual-Glare-Analysis#tutorial-1-calculating-point-in-time-dgp-in-a-computer-lab) for more information about the methodology.
+This recipe uses the image-less glare method developed by Nathaniel Jones to
+estimate glare at each sensor. [More information on this method can be found here](https://github.com/nljones/Accelerad/wiki/The-Imageless-Method-for-Spatial-and-Annual-Glare-Analysis).
+
+The resulting DGP is used to compute Glare Autonomy (GA), which is the percentage
+of occupied time that a view is free of glare.
