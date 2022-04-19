@@ -261,7 +261,7 @@ class ImagelessAnnualGlareEntryPoint(DAG):
 
     @task(template=TranslateVTKJS, needs=[daylight_glare_autonomy])
     def create_vtkjs(
-        self, hbjson_file=model, file_type='vtkjs', grid_options='points',
+        self, hbjson_file=model, file_type='vtkjs', grid_options='meshes',
         data='metrics'
     ):
         return [
