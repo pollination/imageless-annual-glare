@@ -70,7 +70,7 @@ class ImagelessAnnualGlareEntryPoint(DAG):
 
     model = Inputs.file(
         description='A Honeybee model in HBJSON file format.',
-        extensions=['json', 'hbjson'],
+        extensions=['json', 'hbjson', 'pkl', 'hbpkl', 'zip'],
         alias=hbjson_model_grid_input
     )
 
