@@ -47,8 +47,9 @@ class ImagelessAnnualGlare(DAG):
         optional=True
     )
 
-    threshold_factor = Inputs.float(
-        description='Constant threshold factor in cd/m2.', default=2000
+    luminance_factor = Inputs.float(
+        description='Luminance factor in cd/m2. If the sky patch brightness is above '
+        'this factor it will act as a glare source.', default=2000
     )
 
     @task(template=DaylightCoefficientNoSkyMatrix)
@@ -100,7 +101,7 @@ class ImagelessAnnualGlare(DAG):
         dc_total=total_sky._outputs.result_file,
         sky_vector=sky_matrix,
         view_rays=sensor_grid,
-        threshold_factor=threshold_factor
+        threshold_factor=luminance_factor
     ):
         return [
             {
