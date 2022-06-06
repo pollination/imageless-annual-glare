@@ -96,6 +96,17 @@ class ImagelessAnnualGlareEntryPoint(DAG):
         spec={'type': 'number', 'minimum': 0, 'maximum': 1}
     )
 
+    luminance_factor = Inputs.float(
+        description='Luminance factor in cd/m2. If the sky patch brightness is above '
+        'this factor it will act as a glare source. If larger than 100, it is used as '
+        'constant threshold in cd/m2. If less than or equal to 100, this factor '
+        'multiplied by the average luminance in each view will be used as threshold for '
+        'detecting the glare sources (not recommended). The default value is 2000 '
+        '(fixed threshold method).',
+        default=2000,
+        spec={'type': 'number'}
+    )
+
     @task(template=CreateRadianceFolderGrid)
     def create_rad_folder(self, input_model=model, grid_filter=grid_filter):
         """Translate the input model to a radiance folder."""
@@ -224,7 +235,8 @@ class ImagelessAnnualGlareEntryPoint(DAG):
         sensor_count='{{item.count}}',
         sky_matrix=create_total_sky._outputs.sky_matrix,
         sky_dome=create_sky_dome._outputs.sky_dome,
-        bsdfs=create_rad_folder._outputs.bsdf_folder
+        bsdfs=create_rad_folder._outputs.bsdf_folder,
+        luminance_factor=luminance_factor
     ):
         pass
 
