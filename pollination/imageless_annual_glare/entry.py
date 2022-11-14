@@ -16,6 +16,7 @@ from pollination.alias.outputs.daylight import glare_autonomy_results
 
 from ._prepare_folder import ImagelessAnnualGlarePrepareFolder
 from ._raytracing import ImagelessAnnualGlare
+from ._postprocess import ImagelessAnnualGlarePostprocess
 
 
 @dataclass
@@ -161,40 +162,30 @@ class ImagelessAnnualGlareEntryPoint(DAG):
         pass
 
     @task(
-        template=MergeFolderData,
+        template=ImagelessAnnualGlarePostprocess,
         needs=[prepare_folder_imageless_annual_glare, annual_imageless_glare],
+        sub_folder='postprocess',
         sub_paths={'input_folder': 'dgp'}
     )
-    def restructure_daylight_glare_probability_results(
+    def postprocess_imageless_annual_glare(
         self, input_folder=prepare_folder_imageless_annual_glare._outputs.initial_results,
-        extension='dgp'
+        schedule=schedule, glare_threshold=glare_threshold,
+        results_folder=prepare_folder_imageless_annual_glare._outputs.results
     ):
         return [
             {
-                'from': MergeFolderData()._outputs.output_folder,
-                'to': 'results'
-            }
-        ]
-
-    @task(
-        template=AnnualGlareAutonomy,
-        needs=[restructure_daylight_glare_probability_results]
-    )
-    def daylight_glare_autonomy(
-        self,
-        folder=restructure_daylight_glare_probability_results._outputs.output_folder,
-        schedule=schedule, glare_threshold=glare_threshold
-    ):
-        return [
+                'from': ImagelessAnnualGlarePostprocess()._outputs.results,
+                'to': '../results'
+            },
             {
-                'from': AnnualGlareAutonomy()._outputs.annual_metrics,
-                'to': 'metrics'
+                'from': ImagelessAnnualGlarePostprocess()._outputs.metrics,
+                'to': '../metrics'
             }
         ]
 
     results = Outputs.folder(
-        source='results', description='Folder with raw '
-        'result files (.dgp) that contain matrices for the daylight glare probability.'
+        source='results', description='Folder with raw result files (.dgp) '
+        'that contain matrices for the daylight glare probability.'
     )
 
     ga = Outputs.folder(
