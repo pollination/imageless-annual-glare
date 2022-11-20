@@ -69,7 +69,7 @@ class ImagelessAnnualGlarePrepareFolder(GroupedDAG):
         alias=wea_input_timestep_check
     )
 
-    @task(template=CreateRadianceFolderGrid)
+    @task(template=CreateRadianceFolderGrid, annotations={'main_task': True})
     def create_rad_folder(self, input_model=model, grid_filter=grid_filter):
         """Translate the input model to a radiance folder."""
         return [
@@ -118,15 +118,6 @@ class ImagelessAnnualGlarePrepareFolder(GroupedDAG):
             },
             {
                 'from': SplitGridFolder()._outputs.dist_info,
-                'to': 'initial_results/ga/_redist_info.json'
-            }
-        ]
-
-    @task(template=Copy, needs=[split_grid_folder])
-    def copy_redist_info(self, src=split_grid_folder._outputs.dist_info):
-        return [
-            {
-                'from': Copy()._outputs.dst,
                 'to': 'initial_results/dgp/_redist_info.json'
             }
         ]
@@ -179,6 +170,10 @@ class ImagelessAnnualGlarePrepareFolder(GroupedDAG):
 
     results = Outputs.folder(
         source='results', description='results folder.'
+    )
+
+    metrics = Outputs.folder(
+        source='metrics', description='metrics folder.'
     )
 
     initial_results = Outputs.folder(

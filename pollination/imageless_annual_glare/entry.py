@@ -16,7 +16,6 @@ from pollination.alias.outputs.daylight import glare_autonomy_results
 
 from ._prepare_folder import ImagelessAnnualGlarePrepareFolder
 from ._raytracing import ImagelessAnnualGlare
-from ._postprocess import ImagelessAnnualGlarePostprocess
 
 
 @dataclass
@@ -124,6 +123,10 @@ class ImagelessAnnualGlareEntryPoint(DAG):
                 'to': 'results'
             },
             {
+                'from': ImagelessAnnualGlarePrepareFolder()._outputs.metrics,
+                'to': 'metrics'
+            },
+            {
                 'from': ImagelessAnnualGlarePrepareFolder()._outputs.initial_results,
                 'to': 'initial_results'
             },
@@ -162,24 +165,32 @@ class ImagelessAnnualGlareEntryPoint(DAG):
         pass
 
     @task(
-        template=ImagelessAnnualGlarePostprocess,
-        needs=[prepare_folder_imageless_annual_glare, annual_imageless_glare],
-        sub_folder='postprocess',
-        sub_paths={'input_folder': 'dgp'}
+        template=MergeFolderData,
+        needs=[annual_imageless_glare]
     )
-    def postprocess_imageless_annual_glare(
-        self, input_folder=prepare_folder_imageless_annual_glare._outputs.initial_results,
-        schedule=schedule, glare_threshold=glare_threshold,
-        results_folder=prepare_folder_imageless_annual_glare._outputs.results
+    def restructure_daylight_glare_probability_results(
+        self, input_folder='initial_results/dgp', extension='dgp'
     ):
         return [
             {
-                'from': ImagelessAnnualGlarePostprocess()._outputs.results,
-                'to': '../results'
-            },
+                'from': MergeFolderData()._outputs.output_folder,
+                'to': 'results'
+            }
+        ]
+
+    @task(
+        template=AnnualGlareAutonomy,
+        needs=[restructure_daylight_glare_probability_results]
+    )
+    def daylight_glare_autonomy(
+        self,
+        folder=restructure_daylight_glare_probability_results._outputs.output_folder,
+        schedule=schedule, glare_threshold=glare_threshold
+    ):
+        return [
             {
-                'from': ImagelessAnnualGlarePostprocess()._outputs.metrics,
-                'to': '../metrics'
+                'from': AnnualGlareAutonomy()._outputs.annual_metrics,
+                'to': 'metrics'
             }
         ]
 
