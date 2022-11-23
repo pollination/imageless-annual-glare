@@ -5,7 +5,6 @@ from pollination.honeybee_radiance.translate import CreateRadianceFolderGrid
 from pollination.honeybee_radiance.octree import CreateOctree, CreateOctreeWithSky
 from pollination.honeybee_radiance.sky import CreateSkyDome, CreateSkyMatrix
 from pollination.honeybee_radiance.grid import SplitGridFolder
-from pollination.path.copy import Copy
 
 # input/output alias
 from pollination.alias.inputs.model import hbjson_model_grid_input
@@ -79,16 +78,7 @@ class ImagelessAnnualGlarePrepareFolder(GroupedDAG):
             },
             {
                 'from': CreateRadianceFolderGrid()._outputs.sensor_grids_file,
-                'to': 'results/grids_info.json'
-            }
-        ]
-
-    @task(template=Copy, needs=[create_rad_folder])
-    def copy_grid_info(self, src=create_rad_folder._outputs.sensor_grids_file):
-        return [
-            {
-                'from': Copy()._outputs.dst,
-                'to': 'metrics/ga/grids_info.json'
+                'to': 'resources/grids_info.json'
             }
         ]
 
@@ -156,7 +146,7 @@ class ImagelessAnnualGlarePrepareFolder(GroupedDAG):
         return [
             {
                 'from': ParseSunUpHours()._outputs.sun_up_hours,
-                'to': 'results/sun-up-hours.txt'
+                'to': 'resources/sun-up-hours.txt'
             }
         ]
 
@@ -166,14 +156,6 @@ class ImagelessAnnualGlarePrepareFolder(GroupedDAG):
 
     resources = Outputs.folder(
         source='resources', description='resources folder.'
-    )
-
-    results = Outputs.folder(
-        source='results', description='results folder.'
-    )
-
-    metrics = Outputs.folder(
-        source='metrics', description='metrics folder.'
     )
 
     initial_results = Outputs.folder(
