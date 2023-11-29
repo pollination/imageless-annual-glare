@@ -170,7 +170,8 @@ class ImagelessAnnualGlareEntryPoint(DAG):
         self, input_folder=prepare_folder_imageless_annual_glare._outputs.initial_results,
         schedule=schedule, glare_threshold=glare_threshold,
         grids_info=prepare_folder_imageless_annual_glare._outputs.resources,
-        sun_up_hours=prepare_folder_imageless_annual_glare._outputs.resources
+        sun_up_hours=prepare_folder_imageless_annual_glare._outputs.resources,
+        model=model
     ):
         return [
             {
@@ -180,8 +181,17 @@ class ImagelessAnnualGlareEntryPoint(DAG):
             {
                 'from': ImagelessAnnualGlarePostprocess()._outputs.metrics,
                 'to': 'metrics'
+            },
+            {
+                'from': ImagelessAnnualGlarePostprocess()._outputs.visualization,
+                'to': 'visualization.vsf'
             }
         ]
+
+    visualization = Outputs.file(
+        source='visualization.vsf',
+        description='Result visualization in VisualizationSet format.'
+    )
 
     results = Outputs.folder(
         source='results', description='Folder with raw result files (.dgp) '

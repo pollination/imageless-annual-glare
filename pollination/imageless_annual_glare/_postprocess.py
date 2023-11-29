@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from pollination_dsl.dag import Inputs, GroupedDAG, task, Outputs
 from pollination.honeybee_radiance.grid import MergeFolderData
-from pollination.honeybee_radiance.post_process import AnnualGlareAutonomy
+from pollination.honeybee_radiance.post_process import AnnualGlareAutonomy, ImagelessAnnualGlareVisMetadata
 from pollination.path.copy import CopyFile, CopyFileMultiple
+from pollination.honeybee_display.translate import ModelToVis
 
 # input/output alias
 from pollination.alias.inputs.schedule import schedule_csv_input
@@ -13,6 +14,11 @@ class ImagelessAnnualGlarePostprocess(GroupedDAG):
     """Prepare folder for imageless annual glare."""
 
     # inputs
+    model = Inputs.file(
+        description='Input Honeybee model.',
+        extensions=['json', 'hbjson', 'pkl', 'hbpkl', 'zip']
+    )
+
     input_folder = Inputs.folder(
         description='Folder with DGP results before redistributing the '
         'results to the original grids.'
@@ -90,10 +96,38 @@ class ImagelessAnnualGlarePostprocess(GroupedDAG):
             }
         ]
 
+    @task(
+        template=ImagelessAnnualGlareVisMetadata,
+        needs=[daylight_glare_autonomy]
+    )
+    def create_vis_metadata(self):
+        return [
+            {
+                'from': ImagelessAnnualGlareVisMetadata()._outputs.cfg_file,
+                'to': 'metrics/ga/vis_metadata.json'
+            }
+        ]
+
+    @task(template=ModelToVis, needs=[daylight_glare_autonomy, create_vis_metadata])
+    def create_vsf(
+        self, model=model, grid_data='metrics', output_format='vsf'
+    ):
+        return [
+            {
+                'from': ModelToVis()._outputs.output_file,
+                'to': 'visualization.vsf'
+            }
+        ]
+
     results = Outputs.folder(
         source='results', description='results folder.'
     )
 
     metrics = Outputs.folder(
         source='metrics', description='metrics folder.'
+    )
+
+    visualization = Outputs.file(
+        source='visualization.vsf',
+        description='Imageless annual glare result visualization in VisualizationSet format.'
     )
