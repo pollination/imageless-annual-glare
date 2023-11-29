@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pollination_dsl.dag import Inputs, GroupedDAG, task, Outputs
-from pollination.honeybee_radiance.sun import CreateSunMatrix, ParseSunUpHours
+from pollination.honeybee_radiance.sun import CreateSunMtx, ParseSunUpHours
 from pollination.honeybee_radiance.translate import CreateRadianceFolderGrid
 from pollination.honeybee_radiance.octree import CreateOctree, CreateOctreeWithSky
 from pollination.honeybee_radiance.sky import CreateSkyDome, CreateSkyMatrix
@@ -64,7 +64,7 @@ class ImagelessAnnualGlarePrepareFolder(GroupedDAG):
 
     wea = Inputs.file(
         description='Wea file.',
-        extensions=['wea'],
+        extensions=['wea', 'epw'],
         alias=wea_input_timestep_check
     )
 
@@ -131,12 +131,12 @@ class ImagelessAnnualGlarePrepareFolder(GroupedDAG):
             }
         ]
 
-    @task(template=CreateSunMatrix)
+    @task(template=CreateSunMtx)
     def generate_sunpath(self, north=north, wea=wea):
         """Create sunpath for sun-up-hours."""
         return [
             {
-                'from': CreateSunMatrix()._outputs.sun_modifiers,
+                'from': CreateSunMtx()._outputs.sun_modifiers,
                 'to': 'resources/suns.mod'
             }
         ]
