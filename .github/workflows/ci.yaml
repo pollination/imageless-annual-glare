@@ -81,6 +81,19 @@ jobs:
 
           queenbee
           pollination dsl push pollination-imageless-annual-glare --tag $TAG -e https://api.staging.pollination.solutions -src https://api.staging.pollination.solutions/registries --push-dependencies
+      - name: Set Tag
+        id: set-tag
+        run: |
+          TAG=$(echo "${{ needs.deploy.outputs.tag }}" | sed 's/[[:space:]]//g')
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+      - name: install python dependencies for samples
+        run: pip install -r samples/requirements.txt
+      - name: run on staging
+        run: python samples/run_jobs.py
+        env:
+          QB_POLLINATION_TOKEN: ${{ secrets.POLLINATION_STAGING_LADYBUGBOT_TOKEN }}
+          TAG: ${{ steps.set-tag.outputs.tag }}
+          HOST: https://api.staging.pollination.solutions
 
   deploy-to-production:
     name: Deploy to Pollination Production
